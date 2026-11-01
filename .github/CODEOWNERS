@@ -1,0 +1,6 @@
+# Route every change through the repository owner until dedicated teams exist.
+* @aayushus
+
+# Changes that control automation and agent behavior need explicit review.
+/.github/ @aayushus
+/AGENTS.md @aayushus

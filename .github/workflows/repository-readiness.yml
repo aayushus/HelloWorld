@@ -1,0 +1,26 @@
+name: Repository readiness
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  repository-hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify required engineering guidance
+        run: |
+          test -f AGENTS.md
+          test -f docs/architecture.md
+          test -f .github/CODEOWNERS
+          test -f .github/dependabot.yml
+      - name: Verify Markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
