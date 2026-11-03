@@ -1,0 +1,17 @@
+name: Repository hygiene
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  guidance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check repository guidance
+        run: |
+          test -f AGENTS.md
+          test -f docs/architecture.md
+          test -f .github/CODEOWNERS
