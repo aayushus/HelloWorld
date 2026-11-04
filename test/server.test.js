@@ -1,6 +1,6 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { createServer, normalizeTheme, resolveTheme, getThemePreference, isDarkModeEnabled, THEME_PREFERENCE_KEY } = require('../server');
+const { createServer, startServer, normalizeTheme, resolveTheme, getThemePreference, isDarkModeEnabled, THEME_PREFERENCE_KEY } = require('../server');
 
 let server;
 let baseUrl;
@@ -116,15 +116,39 @@ test('page is responsive and self-contained', async () => {
   assert.doesNotMatch(body, /<script[^>]+src=/);
 });
 
+test('GET /health returns ok JSON', async () => {
+  const res = await fetch(`${baseUrl}/health`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /application\/json/);
+  assert.deepEqual(await res.json(), { status: 'ok' });
+});
+
 test('GET /healthz returns ok JSON', async () => {
   const res = await fetch(`${baseUrl}/healthz`);
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { status: 'ok' });
 });
 
-test('unknown route returns 404', async () => {
+test('unknown route returns 404 with JSON error and no stack trace', async () => {
   const res = await fetch(`${baseUrl}/nope`);
   assert.equal(res.status, 404);
+  assert.match(res.headers.get('content-type'), /application\/json/);
+  const body = await res.text();
+  assert.doesNotMatch(body, /stack|at .*:\d+|Error:/);
+  const parsed = JSON.parse(body);
+  assert.equal(typeof parsed.error, 'string');
+});
+
+test('startServer starts a server on an ephemeral port', async () => {
+  const srv = startServer(0);
+  try {
+    await new Promise((resolve) => srv.once('listening', resolve));
+    const res = await fetch(`http://127.0.0.1:${srv.address().port}/health`);
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { status: 'ok' });
+  } finally {
+    await new Promise((resolve) => srv.close(resolve));
+  }
 });
 
 test('default port is 9385', () => {

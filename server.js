@@ -1,4 +1,5 @@
 // KAN-6 — Add dark mode (user-selectable light / dark / system theme).
+// KAN-3 — Add a health endpoint: GET /health -> {"status":"ok"}.
 // Zero-dependency Node HTTP server. Runs on PORT (default 9385).
 // Exported for tests; only listens when run directly.
 //
@@ -252,24 +253,31 @@ function createServer() {
       res.end(renderHtml({ themePreference, serverTheme, darkModeEnabled }));
       return;
     }
-    if (req.method === 'GET' && req.url === '/healthz') {
+    if (req.method === 'GET' && (req.url === '/health' || req.url === '/healthz')) {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ status: 'ok' }));
       return;
     }
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Not Found');
+    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'Not found' }));
   });
 }
 
+function startServer(port = PORT, callback) {
+  const server = createServer();
+  server.listen(port, '127.0.0.1', callback);
+  return server;
+}
+
 if (require.main === module) {
-  createServer().listen(PORT, () => {
+  startServer(PORT, () => {
     console.log(`HelloWorld listening on http://localhost:${PORT}`);
   });
 }
 
 module.exports = {
   createServer,
+  startServer,
   PORT,
   html: renderHtml({}),
   renderHtml,
