@@ -39,6 +39,15 @@ user-selectable **Light / Dark / System** color theme.
 4. Third-party components need their own token mapping — they do not
    inherit automatically.
 
+## Setup
+
+```bash
+npm install
+```
+
+There are no third-party dependencies (Node.js standard library only), so this
+is mainly a sanity step. Requires Node.js >= 18.
+
 ## Run locally
 
 ```bash
@@ -63,7 +72,23 @@ npm test
 Runs the Node built-in test runner (`node --test`) against a server on an
 ephemeral port — covers the HTML response, theme selector, design tokens,
 inline no-flash script, `theme-preference` cookie persistence, feature-flag
-behavior, the resolved-theme logic, `/healthz`, 404s, and the default port.
+behavior, the resolved-theme logic, the health endpoint, 404s, and the
+default port.
+
+## Health endpoint (KAN-3)
+
+- `GET /health` returns `200` with `Content-Type: application/json` and
+  body `{"status":"ok"}`.
+- Any other path returns `404` with a short JSON error
+  (`{"error":"Not found"}`) and no stack trace.
+
+```bash
+curl -i http://localhost:9385/health
+# HTTP/1.1 200 OK
+# Content-Type: application/json; charset=utf-8
+#
+# {"status":"ok"}
+```
 
 ## Files
 
