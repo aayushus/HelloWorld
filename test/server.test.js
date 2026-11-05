@@ -1,6 +1,6 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { createServer, normalizeTheme, resolveTheme, getThemePreference, isDarkModeEnabled, THEME_PREFERENCE_KEY } = require('../server');
+const { createServer, normalizeTheme, resolveTheme, getThemePreference, isDarkModeEnabled, renderNotFoundHtml, notFoundHtml, prefersJson, THEME_PREFERENCE_KEY } = require('../server');
 
 let server;
 let baseUrl;
@@ -122,9 +122,97 @@ test('GET /healthz returns ok JSON', async () => {
   assert.deepEqual(await res.json(), { status: 'ok' });
 });
 
-test('unknown route returns 404', async () => {
+// --- Custom not-found screen (KAN-8) ---
+test('unknown route returns a friendly HTML 404 screen', async () => {
   const res = await fetch(`${baseUrl}/nope`);
   assert.equal(res.status, 404);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+  const body = await res.text();
+  assert.match(body, /<!DOCTYPE html>/i);
+  assert.match(body, /<html lang="en"/);
+  assert.match(body, /<title>404/);
+  assert.match(body, /404/);
+  assert.match(body, /Page not found/i);
+  assert.match(body, /Not Found/i);
+});
+
+test('404 screen is self-contained and uses the site design tokens', async () => {
+  const { body } = await getPage('/missing');
+  assert.match(body, /<style>/);
+  assert.doesNotMatch(body, /<script[^>]+src=/);
+  assert.doesNotMatch(body, /<link[^>]+href=/);
+  for (const token of ['--color-bg', '--color-text', '--color-accent']) {
+    assert.match(body, new RegExp(token.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')));
+  }
+  assert.match(body, /\[data-theme="dark"\]/);
+  // Reuses the site's no-flash theme script so light/dark/system is respected.
+  assert.match(body, /ThemeProvider/);
+  assert.match(body, /prefers-color-scheme: dark/);
+  assert.match(body, /localStorage/);
+});
+
+test('404 screen respects the dark theme when the flag is on and cookie is dark', async () => {
+  const { body } = await getPage('/nope?dark-mode=1', { cookie: 'theme-preference=dark' });
+  assert.match(body, /data-theme="dark"/);
+  assert.match(body, /class="dark"/);
+  assert.match(body, /dark-mode-enabled" content="true"/);
+});
+
+test('404 screen links back to the home page', async () => {
+  const { body } = await getPage('/does-not-exist');
+  assert.match(body, /href="\/"/);
+  assert.match(body, /Go back home/i);
+});
+
+test('404 screen does not leak stack traces or internals', async () => {
+  const { body } = await getPage('/nope');
+  assert.doesNotMatch(body, /stack|at .*:\d+|Error:/);
+  assert.doesNotMatch(body, /server\.js/);
+});
+
+test('unknown route with Accept: application/json returns a JSON 404', async () => {
+  const res = await fetch(`${baseUrl}/nope`, { headers: { Accept: 'application/json' } });
+  assert.equal(res.status, 404);
+  assert.match(res.headers.get('content-type'), /application\/json/);
+  const body = await res.text();
+  assert.doesNotMatch(body, /stack|at .*:\d+|Error:/);
+  assert.deepEqual(JSON.parse(body), { error: 'Not found' });
+});
+
+test('unknown route with a browser Accept header returns the HTML screen', async () => {
+  const res = await fetch(`${baseUrl}/nope`, { headers: { Accept: 'text/html,application/xhtml+xml,*/*;q=0.8' } });
+  assert.equal(res.status, 404);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+});
+
+test('unknown non-GET route also returns the 404 screen', async () => {
+  const res = await fetch(`${baseUrl}/nope`, { method: 'POST' });
+  assert.equal(res.status, 404);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+});
+
+// --- Unit: not-found renderer + content negotiation ---
+test('renderNotFoundHtml returns a standalone themed page', () => {
+  const page = renderNotFoundHtml({ path: '/gone' });
+  assert.match(page, /<!DOCTYPE html>/i);
+  assert.match(page, /404/);
+  assert.match(page, /href="\/"/);
+  assert.match(page, /<code>\/gone<\/code>/);
+  assert.equal(typeof notFoundHtml, 'string');
+  assert.match(notFoundHtml, /Page not found/i);
+});
+
+test('renderNotFoundHtml escapes untrusted paths (no reflected XSS)', () => {
+  const page = renderNotFoundHtml({ path: '/<script>alert(1)</script>' });
+  assert.doesNotMatch(page, /<script>alert\(1\)/);
+  assert.match(page, /&lt;script&gt;/);
+});
+
+test('prefersJson only opts into JSON for explicit application/json requests', () => {
+  assert.equal(prefersJson({ headers: { accept: '*/*' } }), false);
+  assert.equal(prefersJson({ headers: { accept: 'text/html' } }), false);
+  assert.equal(prefersJson({ headers: {} }), false);
+  assert.equal(prefersJson({ headers: { accept: 'application/json' } }), true);
 });
 
 test('default port is 9385', () => {

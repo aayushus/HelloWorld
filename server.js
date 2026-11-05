@@ -1,3 +1,4 @@
+// KAN-8 — Custom not-found screen: a friendly, themed HTML 404 page.
 // KAN-6 — Add dark mode (user-selectable light / dark / system theme).
 // Zero-dependency Node HTTP server. Runs on PORT (default 9385).
 // Exported for tests; only listens when run directly.
@@ -78,6 +79,16 @@ function getServerRenderedTheme(req) {
 
 function escAttr(s) {
   return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
+// Escape untrusted text (e.g. a requested path) before reflecting it in HTML.
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Inline (blocking, in <head> before the stylesheet/body) theme script.
@@ -236,6 +247,103 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
 </html>`;
 }
 
+// --- Custom not-found screen (KAN-8) ----------------------------------------
+// Renders a friendly, self-contained HTML 404 page that matches the site's
+// visual design: the same design tokens + no-flash theme script as the home
+// page, so it respects the user's Light / Dark / System preference. It never
+// exposes stack traces or internal error details.
+function renderNotFoundHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkModeEnabled = false, path = '' } = {}) {
+  const dataTheme = serverTheme || 'light';
+  const htmlClass = dataTheme === 'dark' ? ' class="dark"' : '';
+  // Only ever reflect a path, never a query string, and escape it to avoid XSS.
+  const safePath = path ? String(path).split('?')[0] : '';
+  const pathLine = safePath
+    ? `<p class="path-line">We couldn't find <code>${escapeHtml(safePath)}</code>.</p>`
+    : '';
+  return `<!DOCTYPE html>
+<html lang="en" data-theme="${escAttr(dataTheme)}" data-theme-preference="${escAttr(themePreference)}"${htmlClass}>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<meta name="description" content="404 Not Found — the page you requested could not be found." />
+<meta name="dark-mode-enabled" content="${darkModeEnabled ? 'true' : 'false'}" />
+<title>404 — Page not found | HelloWorld</title>
+<script>${themeScript}</script>
+<style>
+  :root {
+    --color-bg: #ffffff;
+    --color-text: #1d1d1f;
+    --color-border: #d2d2d7;
+    --color-surface: #f5f5f7;
+    --color-muted: #595959;
+    --color-accent: #0071e3;
+    --color-accent-hover: #005fc4;
+    color-scheme: light;
+  }
+  [data-theme="dark"], .dark {
+    --color-bg: #000000;
+    --color-text: #f5f5f7;
+    --color-border: #424245;
+    --color-surface: #1d1d1f;
+    --color-muted: #a1a1a6;
+    --color-accent: #2997ff;
+    --color-accent-hover: #66bbff;
+    color-scheme: dark;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--color-accent); }
+  .nav {
+    display: flex; align-items: center;
+    padding: 12px 20px; background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .brand { font-weight: 700; text-decoration: none; color: var(--color-text); }
+  main { flex: 1; max-width: 640px; width: 100%; margin: 0 auto; padding: 64px 20px; text-align: center; }
+  .code { font-size: clamp(72px, 18vw, 160px); font-weight: 700; line-height: 1; letter-spacing: -0.04em; color: var(--color-accent); }
+  h1 { font-size: clamp(24px, 4vw, 36px); letter-spacing: -0.02em; margin-top: 12px; }
+  .lead { color: var(--color-muted); font-size: 18px; margin-top: 12px; }
+  .path-line { color: var(--color-muted); font-size: 14px; margin-top: 16px; word-break: break-all; }
+  .path-line code { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; padding: 2px 8px; }
+  .btn { display: inline-block; margin-top: 28px; padding: 12px 24px; border-radius: 980px; background: var(--color-accent); color: #fff; text-decoration: none; font-weight: 600; }
+  .btn:hover { background: var(--color-accent-hover); }
+  footer { border-top: 1px solid var(--color-border); color: var(--color-muted); font-size: 12px; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+<header class="nav"><a class="brand" href="/">HelloWorld</a></header>
+<main>
+  <p class="code">404</p>
+  <h1>Page not found</h1>
+  <p class="lead">Sorry, we can't find the page you're looking for.</p>
+  ${pathLine}
+  <a class="btn" href="/">Go back home</a>
+</main>
+<footer>Copyright &copy; 2026 HelloWorld.</footer>
+</body>
+</html>`;
+}
+
+// A stable, pre-rendered version of the not-found screen (no request context).
+const notFoundHtml = renderNotFoundHtml({});
+
+// Content negotiation: browsers (and `fetch` with `Accept: */*`) get the
+// friendly HTML screen; explicit API clients that prefer JSON still receive
+// the short machine-readable error. JSON is purely opt-in via Accept.
+function prefersJson(req) {
+  const accept = (req && req.headers && req.headers.accept) || '';
+  return /application\/json/i.test(accept) && !/text\/html/i.test(accept);
+}
+
 function createServer() {
   return http.createServer((req, res) => {
     if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html' || req.url.startsWith('/?') || req.url.startsWith('/index.html?'))) {
@@ -257,8 +365,25 @@ function createServer() {
       res.end(JSON.stringify({ status: 'ok' }));
       return;
     }
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Not Found');
+    // KAN-8: unmatched routes render a friendly, themed HTML not-found
+    // screen. API clients that explicitly prefer JSON still get a short
+    // machine-readable error. No stack traces / internals are ever leaked.
+    if (prefersJson(req)) {
+      res.writeHead(404, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
+      res.end(JSON.stringify({ error: 'Not found' }));
+      return;
+    }
+    const themePreference = getThemePreference(req);
+    const darkModeEnabled = isDarkModeEnabled(req);
+    const serverTheme = darkModeEnabled ? getServerRenderedTheme(req) : null;
+    res.writeHead(404, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    });
+    res.end(renderNotFoundHtml({ themePreference, serverTheme, darkModeEnabled, path: req.url }));
   });
 }
 
@@ -273,6 +398,9 @@ module.exports = {
   PORT,
   html: renderHtml({}),
   renderHtml,
+  renderNotFoundHtml,
+  notFoundHtml,
+  prefersJson,
   themeScript,
   THEME_PREFERENCE_KEY,
   VALID_THEMES,

@@ -39,6 +39,41 @@ user-selectable **Light / Dark / System** color theme.
 4. Third-party components need their own token mapping — they do not
    inherit automatically.
 
+## Custom not-found screen (KAN-8)
+
+Unknown routes no longer return a bare `Not Found` line. They render a
+friendly, self-contained **404 HTML page** that matches the rest of the site:
+
+- **HTTP `404`** with `Content-Type: text/html; charset=utf-8`.
+- A clear **"404 — Page not found"** message plus the requested path
+  (HTML-escaped, so it can never inject markup / XSS).
+- A **"Go back home"** link back to `/`.
+- Reuses the site's **design tokens** and the inline no-flash theme script,
+  so the screen respects the user's **Light / Dark / System** preference.
+- Fully self-contained (inline `<style>`, inline theme script, no external
+  assets) and accessible (`lang="en"`, viewport meta, `noindex`).
+- **No stack traces or internal error details** are ever exposed.
+
+**Content negotiation**: API clients that explicitly prefer JSON still get the
+short machine-readable error instead of the HTML screen:
+
+```bash
+curl -i http://localhost:9385/does-not-exist
+# HTTP/1.1 404 Not Found
+# Content-Type: text/html; charset=utf-8
+# ... friendly 404 page ...
+
+curl -i -H 'Accept: application/json' http://localhost:9385/does-not-exist
+# HTTP/1.1 404 Not Found
+# Content-Type: application/json; charset=utf-8
+#
+# {"error":"Not found"}
+```
+
+Browsers (`Accept: text/html, ...`) and default/ambiguous requests
+(`Accept: */*`, as sent by `fetch`) receive the HTML screen. JSON is purely
+opt-in via an explicit `Accept: application/json` header.
+
 ## Run locally
 
 ```bash
@@ -63,11 +98,14 @@ npm test
 Runs the Node built-in test runner (`node --test`) against a server on an
 ephemeral port — covers the HTML response, theme selector, design tokens,
 inline no-flash script, `theme-preference` cookie persistence, feature-flag
-behavior, the resolved-theme logic, `/healthz`, 404s, and the default port.
+behavior, the resolved-theme logic, `/healthz`, the custom 404 not-found
+screen (theming, home link, no leaked stack traces, XSS-escaped paths, and
+JSON content negotiation), and the default port.
 
 ## Files
 
-- `server.js` — zero-dependency HTTP server + themed page.
+- `server.js` — zero-dependency HTTP server, themed page, and custom 404
+  not-found screen.
 - `test/server.test.js` — automated tests (node:test + fetch).
 - `package.json` — scripts (`start`, `test`) and metadata.
 - `README.md` — this file.

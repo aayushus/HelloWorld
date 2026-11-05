@@ -2,7 +2,7 @@
   "name": "helloworld",
   "version": "1.0.0",
   "private": true,
-  "description": "Tiny zero-dependency HelloWorld page with user-selectable dark mode on port 9385.",
+  "description": "Tiny zero-dependency HelloWorld page with user-selectable dark mode and a custom 404 not-found screen on port 9385.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
