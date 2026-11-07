@@ -232,7 +232,7 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
     <article class="tile"><h2>System</h2><p>Follows your OS, updates when it changes.</p></article>
   </section>
 </main>
-<footer>Copyright &copy; 2026 HelloWorld. Theme preference is stored as <code>theme-preference</code>.</footer>
+<footer>Built with Garick</footer>
 </body>
 </html>`;
 }

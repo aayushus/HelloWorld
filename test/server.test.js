@@ -116,6 +116,13 @@ test('page is responsive and self-contained', async () => {
   assert.doesNotMatch(body, /<script[^>]+src=/);
 });
 
+test('page contains exactly one footer with "Built with Garick"', async () => {
+  const { body } = await getPage();
+  const matches = body.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/g) || [];
+  assert.equal(matches.length, 1);
+  assert.match(matches[0], />Built with Garick<\/footer>/);
+});
+
 test('GET /health returns ok JSON', async () => {
   const res = await fetch(`${baseUrl}/health`);
   assert.equal(res.status, 200);
