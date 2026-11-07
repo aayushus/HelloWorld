@@ -96,3 +96,10 @@ curl -i http://localhost:9385/health
 - `test/server.test.js` — automated tests (node:test + fetch).
 - `package.json` — scripts (`start`, `test`) and metadata.
 - `README.md` — this file.
+
+## Contributing
+
+- Open an issue to discuss proposed changes before submitting a pull request.
+- Keep changes focused and include tests or verification steps when applicable.
+- Follow the existing code style and update documentation as needed.
+
