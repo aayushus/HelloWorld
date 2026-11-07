@@ -139,6 +139,34 @@ test('unknown route returns 404 with JSON error and no stack trace', async () =>
   assert.equal(typeof parsed.error, 'string');
 });
 
+// --- KAN-27: Newsletter page ---
+test('GET /newsletter.html returns the static Newsletter page', async () => {
+  const { res, body } = await getPage('/newsletter.html');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+  assert.match(body, /<!DOCTYPE html>/i);
+  assert.match(body, /<html[^>]*\blang=/i);
+  assert.match(body, /<meta[^>]*charset=/i);
+  assert.match(body, /<title>Newsletter<\/title>/);
+  const h1s = body.match(/<h1\b/gi) || [];
+  assert.equal(h1s.length, 1);
+  assert.match(body, /<h1>Newsletter<\/h1>/);
+  assert.match(body, /<form\b/i);
+  assert.match(body, /<input[^>]*type=["']email["']/i);
+  assert.match(body, /<button\b/i);
+  assert.match(body, /<style>/i);
+  assert.doesNotMatch(body, /<script\b/i);
+  assert.doesNotMatch(body, /\bsrc=/i);
+  assert.doesNotMatch(body, /<link[^>]*rel=["']stylesheet["']/i);
+});
+
+test('GET /newsletter returns the same Newsletter page', async () => {
+  const { res, body } = await getPage('/newsletter');
+  assert.equal(res.status, 200);
+  assert.match(body, /<title>Newsletter<\/title>/);
+  assert.match(body, /<h1>Newsletter<\/h1>/);
+});
+
 test('startServer starts a server on an ephemeral port', async () => {
   const srv = startServer(0);
   try {
