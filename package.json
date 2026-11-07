@@ -1,11 +1,12 @@
 {
   "name": "helloworld",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Tiny zero-dependency HelloWorld page with user-selectable dark mode and a GET /health endpoint on port 9385.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "node -c server.js && node -c test/server.test.js",
     "test": "node --test"
   },
   "license": "MIT",
