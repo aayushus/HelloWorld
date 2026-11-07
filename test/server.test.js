@@ -164,3 +164,34 @@ test('default port is 9385', () => {
   const fresh = require('../server');
   assert.equal(Number(fresh.PORT), 9385);
 });
+
+// --- KAN-45: Links and Credits static pages ---
+for (const page of ['links.html', 'credits.html']) {
+  test(`GET /${page} returns 200 HTML5 with inline CSS only`, async () => {
+    const { res, body } = await getPage(`/${page}`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /text\/html/);
+    assert.match(body, /^<!DOCTYPE html>/i);
+    assert.doesNotMatch(body, /<style\b/i);
+    assert.doesNotMatch(body, /<link[^>]+rel=["']stylesheet/i);
+    assert.doesNotMatch(body, /<script\b/i);
+    assert.match(body, /\bstyle="/i);
+  });
+
+  test(`GET /${page} has exactly one h1 and one back link to index.html`, async () => {
+    const { body } = await getPage(`/${page}`);
+    const h1s = body.match(/<h1\b/gi) || [];
+    assert.equal(h1s.length, 1);
+    const links = body.match(/<a\b[^>]*href=["']index\.html["'][^>]*>/gi) || [];
+    assert.equal(links.length, 1);
+    const allAnchors = body.match(/<a\b/gi) || [];
+    assert.equal(allAnchors.length, 1);
+  });
+
+  test(`GET /${page} has no other visible content elements`, async () => {
+    const { body } = await getPage(`/${page}`);
+    for (const tag of ['<p\\b', '<div\\b', '<ul\\b', '<ol\\b', '<li\\b', '<section\\b', '<article\\b', '<nav\\b', '<header\\b', '<footer\\b', '<main\\b', '<span\\b', '<table\\b', '<form\\b', '<img\\b']) {
+      assert.doesNotMatch(body, new RegExp(tag, 'i'), `unexpected ${tag} in ${page}`);
+    }
+  });
+}
