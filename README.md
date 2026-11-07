@@ -90,9 +90,17 @@ curl -i http://localhost:9385/health
 # {"status":"ok"}
 ```
 
+## Newsletter page (KAN-27)
+
+- Static `newsletter.html` in the repository root: valid HTML5, title and
+  single `h1` "Newsletter", a short pitch, and a plain HTML sign-up form
+  (email input and button, no JavaScript). Uses only HTML and inline CSS.
+- Served by the Node server at `GET /newsletter` and `GET /newsletter.html`.
+
 ## Files
 
-- `server.js` — zero-dependency HTTP server + themed page.
+- `server.js` — zero-dependency HTTP server + themed page + newsletter route.
+- `newsletter.html` — static Newsletter sign-up page.
 - `test/server.test.js` — automated tests (node:test + fetch).
 - `package.json` — scripts (`start`, `test`) and metadata.
 - `README.md` — this file.

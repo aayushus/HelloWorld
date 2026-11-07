@@ -1,5 +1,6 @@
 // KAN-6 — Add dark mode (user-selectable light / dark / system theme).
 // KAN-3 — Add a health endpoint: GET /health -> {"status":"ok"}.
+// KAN-27 — Serve the static Newsletter page at /newsletter(.html).
 // Zero-dependency Node HTTP server. Runs on PORT (default 9385).
 // Exported for tests; only listens when run directly.
 //
@@ -11,7 +12,9 @@
 // instantly — the flag controls the default rollout, not user choice.
 // See README.md "Dark mode (KAN-6)" for the token migration guide.
 
+const fs = require('fs');
 const http = require('http');
+const path = require('path');
 
 const PORT = process.env.PORT || 9385;
 
@@ -19,6 +22,11 @@ const THEME_PREFERENCE_KEY = 'theme-preference';
 const VALID_THEMES = ['light', 'dark', 'system'];
 const DEFAULT_THEME = 'system';
 const FEATURE_FLAG_DARK_MODE = 'dark-mode';
+const NEWSLETTER_FILE = path.join(__dirname, 'newsletter.html');
+
+function readNewsletterHtml() {
+  return fs.readFileSync(NEWSLETTER_FILE, 'utf8');
+}
 
 // --- Feature flag -----------------------------------------------------------
 // Off by default. Only an explicit opt-in turns it on.
@@ -256,6 +264,11 @@ function createServer() {
     if (req.method === 'GET' && (req.url === '/health' || req.url === '/healthz')) {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ status: 'ok' }));
+      return;
+    }
+    if (req.method === 'GET' && (req.url === '/newsletter' || req.url === '/newsletter.html')) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(readNewsletterHtml());
       return;
     }
     res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
