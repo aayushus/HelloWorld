@@ -1,5 +1,6 @@
 // KAN-6 — Add dark mode (user-selectable light / dark / system theme).
 // KAN-3 — Add a health endpoint: GET /health -> {"status":"ok"}.
+// KAN-45 — Serve Links and Credits static pages.
 // Zero-dependency Node HTTP server. Runs on PORT (default 9385).
 // Exported for tests; only listens when run directly.
 //
@@ -12,6 +13,8 @@
 // See README.md "Dark mode (KAN-6)" for the token migration guide.
 
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = process.env.PORT || 9385;
 
@@ -237,6 +240,24 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
 </html>`;
 }
 
+const STATIC_PAGES = new Set(['/links.html', '/credits.html']);
+
+function serveStaticPage(req, res, pathname) {
+  const name = path.basename(pathname);
+  const filePath = path.join(__dirname, name);
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache',
+    });
+    res.end(content);
+  } catch (_err) {
+    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+  }
+}
+
 function createServer() {
   return http.createServer((req, res) => {
     if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html' || req.url.startsWith('/?') || req.url.startsWith('/index.html?'))) {
@@ -251,6 +272,11 @@ function createServer() {
         'Cache-Control': 'no-cache',
       });
       res.end(renderHtml({ themePreference, serverTheme, darkModeEnabled }));
+      return;
+    }
+    const pathname = (req.url || '/').split('?')[0];
+    if (req.method === 'GET' && STATIC_PAGES.has(pathname)) {
+      serveStaticPage(req, res, pathname);
       return;
     }
     if (req.method === 'GET' && (req.url === '/health' || req.url === '/healthz')) {

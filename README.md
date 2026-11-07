@@ -92,7 +92,9 @@ curl -i http://localhost:9385/health
 
 ## Files
 
-- `server.js` — zero-dependency HTTP server + themed page.
+- `server.js` — zero-dependency HTTP server + themed page; serves static `links.html` and `credits.html`.
+- `links.html` — static Links page (inline CSS, back link to `index.html`).
+- `credits.html` — static Credits page (inline CSS, back link to `index.html`).
 - `test/server.test.js` — automated tests (node:test + fetch).
 - `package.json` — scripts (`start`, `test`) and metadata.
 - `README.md` — this file.
