@@ -96,10 +96,13 @@ curl -i http://localhost:9385/health
 - `links.html` — static Links page (inline CSS, back link to `index.html`).
 - `credits.html` — static Credits page (inline CSS, back link to `index.html`).
 - `test/server.test.js` — automated tests (node:test + fetch).
+- `docs/contributing.md` — contributor instructions and test guide.
 - `package.json` — scripts (`start`, `test`) and metadata.
 - `README.md` — this file.
 
 ## Contributing
+
+See [docs/contributing.md](docs/contributing.md) for instructions on running `npm test` and contributing changes.
 
 - Open an issue to discuss proposed changes before submitting a pull request.
 - Keep changes focused and include tests or verification steps when applicable.
