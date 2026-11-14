@@ -1,6 +1,10 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { createServer, startServer, normalizeTheme, resolveTheme, getThemePreference, isDarkModeEnabled, THEME_PREFERENCE_KEY } = require('../server');
+const fs = require('node:fs');
+const path = require('node:path');
+const { execSync } = require('node:child_process');
+const { createServer, startServer, normalizeTheme, resolveTheme, getThemePreference, isDarkModeEnabled, THEME_PREFERENCE_KEY, INDEX_HTML_PATH } = require('../server');
+const { buildIndexHtml, FOOTER_STYLE } = require('../build');
 
 let server;
 let baseUrl;
@@ -116,11 +120,85 @@ test('page is responsive and self-contained', async () => {
   assert.doesNotMatch(body, /<script[^>]+src=/);
 });
 
-test('page contains exactly one footer with "Built with Garick"', async () => {
-  const { body } = await getPage();
-  const matches = body.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/g) || [];
-  assert.equal(matches.length, 1);
-  assert.match(matches[0], />Built with Garick<\/footer>/);
+test('GET / and GET /index.html serve the centered inline-styled build footer at the bottom of the page', async () => {
+  const diskIndex = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
+  const diskFooterMatch = diskIndex.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/i);
+  assert.ok(diskFooterMatch, 'Expected index.html on disk to contain a <footer>');
+
+  for (const route of ['/', '/index.html', '/?dark-mode=1', '/index.html?dark-mode=1']) {
+    const { res, body } = await getPage(route);
+    assert.equal(res.status, 200, `Expected 200 for ${route}`);
+    assert.match(res.headers.get('content-type'), /text\/html/);
+
+    const matches = body.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi) || [];
+    assert.equal(matches.length, 1, `Expected exactly one footer on ${route}`);
+    assert.equal(matches[0], diskFooterMatch[0]);
+
+    const footerMatch = matches[0].match(/^<footer\b([^>]*)>([\s\S]*?)<\/footer>$/i);
+    assert.ok(footerMatch);
+    const [, attrs, text] = footerMatch;
+    assert.match(attrs, /\bstyle="font-size:\s*0\.75rem;\s*color:\s*#666;\s*text-align:\s*center;"/i);
+    assert.doesNotMatch(attrs, /\bclass=/i);
+    assert.match(text, /^Build [a-f0-9]{7} · \d{4}-\d{2}-\d{2}$/);
+
+    // Verify no stylesheet rule styles footer externally and no runtime fetch is used
+    const styleBlock = (body.match(/<style>([\s\S]*?)<\/style>/i) || [])[1] || '';
+    assert.doesNotMatch(styleBlock, /\bfooter\s*\{/i);
+    assert.doesNotMatch(body, /\bfetch\s*\(|XMLHttpRequest/);
+
+    // Verify footer is at the bottom of the page right before </body>
+    assert.match(body, /<\/main>\s*<footer\b[^>]*>Build [a-f0-9]{7} · \d{4}-\d{2}-\d{2}<\/footer>\s*<\/body>\s*<\/html>\s*$/i);
+  }
+});
+
+test('build updates index.html and HTTP responses for / and /index.html reflect the current git short SHA and UTC date', async () => {
+  const originalIndexHtml = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
+  const expectedHash = execSync('git rev-parse --short=7 HEAD', {
+    cwd: path.dirname(INDEX_HTML_PATH),
+    encoding: 'utf8',
+  }).trim();
+  const expectedDate = new Date().toISOString().slice(0, 10);
+
+  try {
+    const built = buildIndexHtml({ indexPath: INDEX_HTML_PATH });
+    assert.equal(built.commitHash, expectedHash);
+    assert.equal(built.buildDate, expectedDate);
+
+    const expectedFooter = `<footer style="${FOOTER_STYLE}">Build ${expectedHash} · ${expectedDate}</footer>`;
+
+    for (const route of ['/', '/index.html']) {
+      const { res, body } = await getPage(route);
+      assert.equal(res.status, 200);
+      assert.ok(
+        body.includes(expectedFooter),
+        `Expected ${route} response to include ${expectedFooter}`
+      );
+    }
+  } finally {
+    fs.writeFileSync(INDEX_HTML_PATH, originalIndexHtml, 'utf8');
+  }
+});
+
+test('build footer is present on / and /index.html across development, staging, and production NODE_ENV', async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  try {
+    for (const envName of ['development', 'staging', 'production']) {
+      process.env.NODE_ENV = envName;
+      for (const route of ['/', '/index.html']) {
+        const { res, body } = await getPage(route);
+        assert.equal(res.status, 200);
+        const footerMatch = body.match(/<footer\b([^>]*)>([\s\S]*?)<\/footer>/i);
+        assert.ok(footerMatch, `Expected footer on ${route} in ${envName}`);
+        assert.match(footerMatch[2], /^Build [a-f0-9]{7} · \d{4}-\d{2}-\d{2}$/);
+      }
+    }
+  } finally {
+    if (previousNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  }
 });
 
 test('GET /health returns ok JSON', async () => {

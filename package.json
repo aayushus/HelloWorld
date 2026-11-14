@@ -5,6 +5,8 @@
   "description": "Tiny zero-dependency HelloWorld page with user-selectable dark mode and a GET /health endpoint on port 9385.",
   "main": "server.js",
   "scripts": {
+    "build": "node build.js",
+    "prestart": "node build.js",
     "start": "node server.js",
     "test": "node --test"
   },

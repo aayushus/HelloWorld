@@ -17,6 +17,21 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 9385;
+const INDEX_HTML_PATH = path.join(__dirname, 'index.html');
+const DEFAULT_FOOTER_STYLE = 'font-size: 0.75rem; color: #666; text-align: center;';
+
+function getBuildFooterHtml(indexPath = INDEX_HTML_PATH) {
+  try {
+    const indexHtml = fs.readFileSync(indexPath, 'utf8');
+    const match = indexHtml.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/i);
+    if (match) {
+      return match[0];
+    }
+  } catch (_err) {
+    // Fall back to default footer if index.html cannot be read
+  }
+  return `<footer style="${DEFAULT_FOOTER_STYLE}">Build 0000000 · 1970-01-01</footer>`;
+}
 
 const THEME_PREFERENCE_KEY = 'theme-preference';
 const VALID_THEMES = ['light', 'dark', 'system'];
@@ -136,13 +151,14 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 }catch(e){}})();`;
 
-function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkModeEnabled = false } = {}) {
+function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkModeEnabled = false, indexPath = INDEX_HTML_PATH } = {}) {
   const initialTheme = serverTheme || 'light';
   // Server-rendered attributes: a dark cookie + flag on => data-theme="dark"
   // before any script/pait. Without a cookie we default to light on the
   // server and let the inline script resolve system/localStorage pre-paint.
   const dataTheme = serverTheme || initialTheme;
   const htmlClass = dataTheme === 'dark' ? ' class="dark"' : '';
+  const footerHtml = getBuildFooterHtml(indexPath);
   return `<!DOCTYPE html>
 <html lang="en" data-theme="${escAttr(dataTheme)}" data-theme-preference="${escAttr(themePreference)}"${htmlClass}>
 <head>
@@ -204,7 +220,6 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
   .tile p { color: var(--color-muted); margin-top: 6px; font-size: 14px; }
   .btn { display: inline-block; margin-top: 24px; padding: 10px 22px; border-radius: 980px; background: var(--color-accent); color: #fff; text-decoration: none; }
   .btn:hover { background: var(--color-accent-hover); }
-  footer { border-top: 1px solid var(--color-border); color: var(--color-muted); font-size: 12px; padding: 20px; text-align: center; }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) { color-scheme: dark; }
   }
@@ -235,7 +250,7 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
     <article class="tile"><h2>System</h2><p>Follows your OS, updates when it changes.</p></article>
   </section>
 </main>
-<footer>Built with Garick</footer>
+${footerHtml}
 </body>
 </html>`;
 }
@@ -319,7 +334,11 @@ module.exports = {
   createServer,
   startServer,
   PORT,
-  html: renderHtml({}),
+  INDEX_HTML_PATH,
+  getBuildFooterHtml,
+  get html() {
+    return renderHtml({});
+  },
   renderHtml,
   themeScript,
   THEME_PREFERENCE_KEY,
