@@ -240,7 +240,7 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
 </html>`;
 }
 
-const STATIC_PAGES = new Set(['/links.html', '/credits.html']);
+const STATIC_PAGES = new Set(['/links.html', '/credits.html', '/health.html']);
 
 function serveStaticPage(req, res, pathname) {
   const name = path.basename(pathname);

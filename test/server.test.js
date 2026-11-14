@@ -195,3 +195,12 @@ for (const page of ['links.html', 'credits.html']) {
     }
   });
 }
+
+// --- DEVT-9: System status page (health.html) ---
+test('GET /health.html returns 200 with system status and operational badge', async () => {
+  const { res, body } = await getPage('/health.html');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+  assert.match(body, /Garick System: Operational/);
+  assert.match(body, /class="[^"]*\bbadge\b[^"]*\boperational\b[^"]*"/i);
+});
