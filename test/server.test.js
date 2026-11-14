@@ -1,5 +1,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { createServer, startServer, normalizeTheme, resolveTheme, getThemePreference, isDarkModeEnabled, THEME_PREFERENCE_KEY } = require('../server');
 
 let server;
@@ -225,4 +227,38 @@ test('GET /health.json returns healthy status for garick-demo', async () => {
   assert.match(res.headers.get('content-type'), /application\/json/);
   assert.deepEqual(await res.json(), { status: 'healthy', service: 'garick-demo' });
 });
+
+// --- KAN-55: Contributor instructions in docs/contributing.md ---
+test('docs/contributing.md exists in docs directory with instructions to run npm test', () => {
+  const repoRoot = path.resolve(__dirname, '..');
+  const docsDir = path.join(repoRoot, 'docs');
+  const contributingPath = path.join(docsDir, 'contributing.md');
+
+  assert.ok(fs.existsSync(docsDir) && fs.statSync(docsDir).isDirectory(), 'Expected docs directory to exist');
+  assert.ok(fs.existsSync(contributingPath) && fs.statSync(contributingPath).isFile(), 'Expected docs/contributing.md to exist');
+
+  const content = fs.readFileSync(contributingPath, 'utf8');
+  assert.match(content, /#\s+Contributing/i);
+  assert.match(content, /\bnpm test\b/);
+});
+
+test('README.md links to docs/contributing.md and the link resolves to the file', () => {
+  const repoRoot = path.resolve(__dirname, '..');
+  const readmePath = path.join(repoRoot, 'README.md');
+  const readme = fs.readFileSync(readmePath, 'utf8');
+
+  const linkMatch = readme.match(/\[[^\]]+\]\((\.?\/?docs\/contributing\.md)\)/);
+  assert.ok(linkMatch, 'Expected README.md to contain a markdown link to docs/contributing.md');
+
+  const resolvedPath = path.resolve(path.dirname(readmePath), linkMatch[1]);
+  assert.ok(fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isFile(), `Expected link target ${resolvedPath} to exist`);
+});
+
+test('GET /docs/contributing.md serves the contributor instructions', async () => {
+  const { res, body } = await getPage('/docs/contributing.md');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/markdown/);
+  assert.match(body, /\bnpm test\b/);
+});
+
 
