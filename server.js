@@ -240,7 +240,7 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
 </html>`;
 }
 
-const STATIC_PAGES = new Set(['/links.html', '/credits.html']);
+const STATIC_PAGES = new Set(['/links.html', '/credits.html', '/health.html']);
 
 function serveStaticPage(req, res, pathname) {
   const name = path.basename(pathname);
@@ -277,6 +277,20 @@ function createServer() {
     const pathname = (req.url || '/').split('?')[0];
     if (req.method === 'GET' && STATIC_PAGES.has(pathname)) {
       serveStaticPage(req, res, pathname);
+      return;
+    }
+    if (req.method === 'GET' && pathname === '/health.json') {
+      try {
+        const content = fs.readFileSync(path.join(__dirname, 'health.json'), 'utf8');
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-cache',
+        });
+        res.end(content);
+      } catch (_err) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Not found' }));
+      }
       return;
     }
     if (req.method === 'GET' && (req.url === '/health' || req.url === '/healthz')) {
