@@ -226,3 +226,29 @@ test('GET /health.json returns healthy status for garick-demo', async () => {
   assert.deepEqual(await res.json(), { status: 'healthy', service: 'garick-demo' });
 });
 
+// --- KAN-54: Unicode greeting page ---
+test('GET /greeting.html returns 200 with UTF-8 encoding and exact Unicode heading', async () => {
+  const { res, body } = await getPage('/greeting.html');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/html;\s*charset=utf-8/i);
+  assert.match(body, /<meta\s+charset=["']UTF-8["']\s*\/?>/i);
+
+  const h1Match = body.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
+  assert.ok(h1Match, 'Expected /greeting.html to contain an <h1> heading');
+  assert.equal(h1Match[1], 'Café — 日本語 — 👋');
+});
+
+test('GET /greeting.html contains a link to the home page that resolves to HTTP 200', async () => {
+  const { body } = await getPage('/greeting.html');
+  const linkMatch = body.match(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+  assert.ok(linkMatch, 'Expected /greeting.html to contain a home link');
+
+  const resolvedUrl = new URL(linkMatch[1], `${baseUrl}/greeting.html`);
+  const homeRes = await fetch(resolvedUrl);
+  assert.equal(homeRes.status, 200);
+  assert.match(homeRes.headers.get('content-type'), /text\/html;\s*charset=utf-8/i);
+  const homeBody = await homeRes.text();
+  assert.match(homeBody, /<h1>Hello, world\.<\/h1>/);
+});
+
+
