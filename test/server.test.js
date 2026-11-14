@@ -116,11 +116,25 @@ test('page is responsive and self-contained', async () => {
   assert.doesNotMatch(body, /<script[^>]+src=/);
 });
 
-test('page contains exactly one footer with "Built with Garick"', async () => {
-  const { body } = await getPage();
-  const matches = body.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/g) || [];
-  assert.equal(matches.length, 1);
-  assert.match(matches[0], />Built with Garick<\/footer>/);
+test('GET / and GET /index.html contain the build version and date footer at bottom center with inline CSS', async () => {
+  for (const route of ['/', '/index.html', '/?dark-mode=1', '/index.html?dark-mode=1']) {
+    const { res, body } = await getPage(route);
+    assert.equal(res.status, 200);
+    const matches = body.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi) || [];
+    assert.equal(matches.length, 1, `Expected 1 footer on ${route}`);
+
+    const footerMatch = matches[0].match(/<footer\b([^>]*)>([\s\S]*?)<\/footer>/i);
+    assert.ok(footerMatch);
+    const [, attrs, text] = footerMatch;
+    assert.match(attrs, /\bstyle="font-size:\s*0\.75rem;\s*color:\s*#666;\s*text-align:\s*center;"/i);
+    assert.doesNotMatch(attrs, /\bclass=/i);
+    assert.match(text, /^Build [a-f0-9]{7} · \d{4}-\d{2}-\d{2}$/);
+
+    const footerEndIdx = body.indexOf('</footer>');
+    const bodyEndIdx = body.indexOf('</body>');
+    assert.ok(footerEndIdx !== -1 && bodyEndIdx !== -1 && footerEndIdx < bodyEndIdx);
+    assert.equal(body.slice(footerEndIdx + '</footer>'.length, bodyEndIdx).trim(), '');
+  }
 });
 
 test('GET /health returns ok JSON', async () => {
