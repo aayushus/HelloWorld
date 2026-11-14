@@ -195,3 +195,20 @@ for (const page of ['links.html', 'credits.html']) {
     }
   });
 }
+
+// --- DEVT-9: Health check endpoint and system status page ---
+test('GET /health.html returns 200 and displays Garick System: Operational with a green badge', async () => {
+  const { res, body } = await getPage('/health.html');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+  assert.match(body, /Garick System: Operational/);
+  assert.match(body, /class="badge"/);
+});
+
+test('GET /health.json returns healthy status for garick-demo', async () => {
+  const res = await fetch(`${baseUrl}/health.json`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /application\/json/);
+  assert.deepEqual(await res.json(), { status: 'healthy', service: 'garick-demo' });
+});
+
