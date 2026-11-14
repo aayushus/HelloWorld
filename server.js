@@ -22,6 +22,19 @@ const THEME_PREFERENCE_KEY = 'theme-preference';
 const VALID_THEMES = ['light', 'dark', 'system'];
 const DEFAULT_THEME = 'system';
 const FEATURE_FLAG_DARK_MODE = 'dark-mode';
+const INDEX_HTML_PATH = path.join(__dirname, 'index.html');
+const DEFAULT_FOOTER_STYLE = 'font-size: 0.75rem; color: #666; text-align: center;';
+
+function getBuildFooterHtml(indexPath = INDEX_HTML_PATH) {
+  try {
+    const content = fs.readFileSync(indexPath, 'utf8');
+    const match = content.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/i);
+    if (match) return match[0];
+  } catch (_err) {
+    // Fallback if index.html cannot be read
+  }
+  return `<footer style="${DEFAULT_FOOTER_STYLE}">Build 0000000 · 1970-01-01</footer>`;
+}
 
 // --- Feature flag -----------------------------------------------------------
 // Off by default. Only an explicit opt-in turns it on.
@@ -204,7 +217,6 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
   .tile p { color: var(--color-muted); margin-top: 6px; font-size: 14px; }
   .btn { display: inline-block; margin-top: 24px; padding: 10px 22px; border-radius: 980px; background: var(--color-accent); color: #fff; text-decoration: none; }
   .btn:hover { background: var(--color-accent-hover); }
-  footer { border-top: 1px solid var(--color-border); color: var(--color-muted); font-size: 12px; padding: 20px; text-align: center; }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) { color-scheme: dark; }
   }
@@ -235,7 +247,7 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
     <article class="tile"><h2>System</h2><p>Follows your OS, updates when it changes.</p></article>
   </section>
 </main>
-<footer>Built with Garick</footer>
+${getBuildFooterHtml()}
 </body>
 </html>`;
 }
@@ -332,4 +344,5 @@ module.exports = {
   parseCookies,
   getThemePreference,
   getServerRenderedTheme,
+  getBuildFooterHtml,
 };
