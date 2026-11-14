@@ -51,9 +51,12 @@ is mainly a sanity step. Requires Node.js >= 18.
 ## Run locally
 
 ```bash
+npm run build
 npm start
 # → HelloWorld listening on http://localhost:9385
 ```
+
+`npm run build` (also run automatically via `prestart` before `npm start`) executes `node build.js` to write the centered inline-styled build version and UTC date footer (`Build <short-commit-hash> · <UTC-build-date-ISO>`) into `index.html`, which `server.js` also renders on `/` and `/index.html`.
 
 Open http://localhost:9385 in your browser. Set `PORT` to change the port.
 
@@ -92,11 +95,14 @@ curl -i http://localhost:9385/health
 
 ## Files
 
-- `server.js` — zero-dependency HTTP server + themed page; serves static `links.html` and `credits.html`.
+- `server.js` — zero-dependency HTTP server + themed page; serves `/` and `/index.html` with the build footer from `index.html`, plus static `links.html`, `credits.html`, and `health.html`.
+- `build.js` — build-time script that injects the 7-character git short commit hash and UTC ISO date (`YYYY-MM-DD`) footer into `index.html`.
+- `index.html` — static HelloWorld page with the build-time injected `<footer>`.
 - `links.html` — static Links page (inline CSS, back link to `index.html`).
 - `credits.html` — static Credits page (inline CSS, back link to `index.html`).
-- `test/server.test.js` — automated tests (node:test + fetch).
-- `package.json` — scripts (`start`, `test`) and metadata.
+- `smoke.test.js` — smoke and build-injection tests for `index.html` and `build.js`.
+- `test/server.test.js` — automated HTTP and unit tests (node:test + fetch).
+- `package.json` — scripts (`build`, `prestart`, `start`, `test`) and metadata.
 - `README.md` — this file.
 
 ## Contributing
