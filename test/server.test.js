@@ -1,6 +1,10 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { createServer, startServer, normalizeTheme, resolveTheme, getThemePreference, isDarkModeEnabled, THEME_PREFERENCE_KEY } = require('../server');
+const { buildIndexHtml } = require('../build');
 
 let server;
 let baseUrl;
@@ -134,6 +138,49 @@ test('GET / and GET /index.html contain the build version and date footer at bot
     const bodyEndIdx = body.indexOf('</body>');
     assert.ok(footerEndIdx !== -1 && bodyEndIdx !== -1 && footerEndIdx < bodyEndIdx);
     assert.equal(body.slice(footerEndIdx + '</footer>'.length, bodyEndIdx).trim(), '');
+  }
+});
+
+test('GET / and GET /index.html reflect idempotent and updated build footer metadata', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'helloworld-server-build-'));
+  const tmpIndex = path.join(tmpDir, 'index.html');
+  fs.copyFileSync(path.join(__dirname, '..', 'index.html'), tmpIndex);
+  const isolatedServer = createServer({ indexPath: tmpIndex });
+  await new Promise((resolve) => isolatedServer.listen(0, '127.0.0.1', resolve));
+  const isolatedBaseUrl = `http://127.0.0.1:${isolatedServer.address().port}`;
+  try {
+    buildIndexHtml({ indexPath: tmpIndex, commitHash: '111aaaa', buildDate: '2026-11-15' });
+    const firstIndexBytes = fs.readFileSync(tmpIndex);
+    const firstRoot = await (await fetch(`${isolatedBaseUrl}/`)).text();
+    const firstIndex = await (await fetch(`${isolatedBaseUrl}/index.html`)).text();
+
+    buildIndexHtml({ indexPath: tmpIndex, commitHash: '111aaaa', buildDate: '2026-11-15' });
+    const secondIndexBytes = fs.readFileSync(tmpIndex);
+    const secondRoot = await (await fetch(`${isolatedBaseUrl}/`)).text();
+    const secondIndex = await (await fetch(`${isolatedBaseUrl}/index.html`)).text();
+
+    assert.equal(Buffer.compare(firstIndexBytes, secondIndexBytes), 0);
+    assert.equal(firstRoot, secondRoot);
+    assert.equal(firstIndex, secondIndex);
+    assert.equal((secondRoot.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi) || []).length, 1);
+    assert.match(secondRoot, /<footer style="font-size: 0\.75rem; color: #666; text-align: center;">Build 111aaaa · 2026-11-15<\/footer>/);
+
+    buildIndexHtml({ indexPath: tmpIndex, commitHash: '222bbbb', buildDate: '2026-11-16' });
+    const updatedRoot = await (await fetch(`${isolatedBaseUrl}/`)).text();
+    const updatedIndex = await (await fetch(`${isolatedBaseUrl}/index.html`)).text();
+
+    for (const body of [updatedRoot, updatedIndex]) {
+      const footers = body.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi) || [];
+      assert.equal(footers.length, 1);
+      assert.equal(
+        footers[0],
+        '<footer style="font-size: 0.75rem; color: #666; text-align: center;">Build 222bbbb · 2026-11-16</footer>'
+      );
+      assert.doesNotMatch(body, /111aaaa|2026-11-15/);
+    }
+  } finally {
+    await new Promise((resolve) => isolatedServer.close(resolve));
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
 

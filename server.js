@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 }catch(e){}})();`;
 
-function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkModeEnabled = false } = {}) {
+function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkModeEnabled = false, indexPath = INDEX_HTML_PATH } = {}) {
   const initialTheme = serverTheme || 'light';
   // Server-rendered attributes: a dark cookie + flag on => data-theme="dark"
   // before any script/pait. Without a cookie we default to light on the
@@ -247,7 +247,7 @@ function renderHtml({ themePreference = DEFAULT_THEME, serverTheme = null, darkM
     <article class="tile"><h2>System</h2><p>Follows your OS, updates when it changes.</p></article>
   </section>
 </main>
-${getBuildFooterHtml()}
+${getBuildFooterHtml(indexPath)}
 </body>
 </html>`;
 }
@@ -270,7 +270,7 @@ function serveStaticPage(req, res, pathname) {
   }
 }
 
-function createServer() {
+function createServer({ indexPath = INDEX_HTML_PATH } = {}) {
   return http.createServer((req, res) => {
     if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html' || req.url.startsWith('/?') || req.url.startsWith('/index.html?'))) {
       const themePreference = getThemePreference(req);
@@ -283,7 +283,7 @@ function createServer() {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'no-cache',
       });
-      res.end(renderHtml({ themePreference, serverTheme, darkModeEnabled }));
+      res.end(renderHtml({ themePreference, serverTheme, darkModeEnabled, indexPath }));
       return;
     }
     const pathname = (req.url || '/').split('?')[0];
