@@ -1,6 +1,7 @@
 // KAN-6 — Add dark mode (user-selectable light / dark / system theme).
 // KAN-3 — Add a health endpoint: GET /health -> {"status":"ok"}.
 // KAN-45 — Serve Links and Credits static pages.
+// KAN-56 — Add a version JSON endpoint: GET /version.json.
 // Zero-dependency Node HTTP server. Runs on PORT (default 9385).
 // Exported for tests; only listens when run directly.
 //
@@ -23,7 +24,36 @@ const VALID_THEMES = ['light', 'dark', 'system'];
 const DEFAULT_THEME = 'system';
 const FEATURE_FLAG_DARK_MODE = 'dark-mode';
 const INDEX_HTML_PATH = path.join(__dirname, 'index.html');
+const VERSION_JSON_PATH = path.join(__dirname, 'version.json');
 const DEFAULT_FOOTER_STYLE = 'font-size: 0.75rem; color: #666; text-align: center;';
+const DEFAULT_VERSION_INFO = {
+  service: 'helloworld',
+  revision: '993e63d',
+  builtAt: '2026-11-15T00:00:00.000Z',
+};
+
+function getVersionInfo(versionPath = VERSION_JSON_PATH) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed) &&
+      typeof parsed.service === 'string' &&
+      typeof parsed.revision === 'string' &&
+      typeof parsed.builtAt === 'string'
+    ) {
+      return {
+        service: parsed.service,
+        revision: parsed.revision,
+        builtAt: parsed.builtAt,
+      };
+    }
+  } catch (_err) {
+    // Fallback if version.json cannot be read or parsed
+  }
+  return { ...DEFAULT_VERSION_INFO };
+}
 
 function getBuildFooterHtml(indexPath = INDEX_HTML_PATH) {
   try {
@@ -291,6 +321,14 @@ function createServer() {
       serveStaticPage(req, res, pathname);
       return;
     }
+    if (req.method === 'GET' && pathname === '/version.json') {
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(JSON.stringify(getVersionInfo()));
+      return;
+    }
     if (req.method === 'GET' && pathname === '/health.json') {
       try {
         const content = fs.readFileSync(path.join(__dirname, 'health.json'), 'utf8');
@@ -345,4 +383,5 @@ module.exports = {
   getThemePreference,
   getServerRenderedTheme,
   getBuildFooterHtml,
+  getVersionInfo,
 };
