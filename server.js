@@ -252,7 +252,7 @@ ${getBuildFooterHtml()}
 </html>`;
 }
 
-const STATIC_PAGES = new Set(['/about.html', '/links.html', '/credits.html', '/health.html']);
+const STATIC_PAGES = new Set(['/links.html', '/credits.html', '/health.html']);
 
 function serveStaticPage(req, res, pathname) {
   const name = path.basename(pathname);

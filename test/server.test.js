@@ -226,35 +226,3 @@ test('GET /health.json returns healthy status for garick-demo', async () => {
   assert.deepEqual(await res.json(), { status: 'healthy', service: 'garick-demo' });
 });
 
-// --- KAN-10: About us static page ---
-test('GET /about.html returns 200 valid HTML5 with inline CSS only and no scripts or external assets', async () => {
-  const { res, body } = await getPage('/about.html');
-  assert.equal(res.status, 200);
-  assert.match(res.headers.get('content-type'), /text\/html;\s*charset=utf-8/i);
-  assert.match(body, /^<!DOCTYPE html>/i);
-  assert.match(body, /<html\b[^>]*lang=["']en["'][^>]*>/i);
-  assert.match(body, /<meta\s+charset=["']utf-8["']\s*\/?>/i);
-  assert.match(body, /\bstyle="/i);
-  assert.doesNotMatch(body, /<style\b/i);
-  assert.doesNotMatch(body, /<script\b/i);
-  assert.doesNotMatch(body, /<link\b/i);
-  assert.doesNotMatch(body, /(?:src|href)=["']https?:\/\//i);
-});
-
-test('GET /about.html has title "About us", one h1 "About us", and two paragraphs describing a small web studio', async () => {
-  const { body } = await getPage('/about.html');
-  const titleMatch = body.match(/<title>([\s\S]*?)<\/title>/i);
-  assert.ok(titleMatch, 'Expected <title> in about.html');
-  assert.equal(titleMatch[1], 'About us');
-
-  const h1Matches = [...body.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)];
-  assert.equal(h1Matches.length, 1, 'Expected exactly one <h1> in about.html');
-  assert.equal(h1Matches[0][1], 'About us');
-
-  const pMatches = [...body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)];
-  assert.equal(pMatches.length, 2, 'Expected two <p> paragraphs in about.html');
-  assert.match(pMatches[0][1], /small web studio/i);
-  assert.ok(pMatches[1][1].trim().length > 0);
-});
-
-
