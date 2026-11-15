@@ -95,3 +95,104 @@ test('build script injects short git commit hash and UTC ISO date into index.htm
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test('running the build twice with identical fixed build metadata produces byte-identical index.html with one build footer', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'helloworld-idempotent-'));
+  try {
+    const tmpIndex = path.join(tmpDir, 'index.html');
+    fs.writeFileSync(
+      tmpIndex,
+      '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8" />\n  <title>HelloWorld</title>\n</head>\n<body>\n  <h1>Hello, world.</h1>\n</body>\n</html>\n',
+      'utf8'
+    );
+
+    const fixedMeta = {
+      indexPath: tmpIndex,
+      commitHash: '1a2b3c4',
+      buildDate: '2026-11-15',
+    };
+
+    const firstRun = buildIndexHtml(fixedMeta);
+    const firstBytes = fs.readFileSync(tmpIndex);
+
+    const secondRun = buildIndexHtml(fixedMeta);
+    const secondBytes = fs.readFileSync(tmpIndex);
+
+    assert.equal(Buffer.compare(firstBytes, secondBytes), 0, 'Expected byte-identical index.html across consecutive runs');
+    assert.equal(firstRun.html, secondRun.html);
+
+    const html = secondBytes.toString('utf8');
+    const footers = html.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi) || [];
+    assert.equal(footers.length, 1, 'Expected exactly one <footer> in index.html');
+    assert.equal(
+      footers[0],
+      `<footer style="${FOOTER_STYLE}">Build 1a2b3c4 · 2026-11-15</footer>`
+    );
+
+    // Also verify CLI execution with fixed environment variables is byte-identical
+    const cliEnv = {
+      ...process.env,
+      BUILD_INDEX_PATH: tmpIndex,
+      COMMIT_HASH: '1a2b3c4',
+      BUILD_DATE: '2026-11-15',
+    };
+    execSync(`node "${path.resolve(__dirname, 'build.js')}"`, { cwd: __dirname, env: cliEnv });
+    const thirdBytes = fs.readFileSync(tmpIndex);
+    assert.equal(Buffer.compare(secondBytes, thirdBytes), 0, 'Expected CLI build with identical metadata to produce identical bytes');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('changing build metadata updates the existing footer rather than adding another', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'helloworld-update-'));
+  try {
+    const tmpIndex = path.join(tmpDir, 'index.html');
+    fs.copyFileSync(indexPath, tmpIndex);
+
+    buildIndexHtml({
+      indexPath: tmpIndex,
+      commitHash: 'aaaa111',
+      buildDate: '2026-11-14',
+    });
+    const afterFirst = fs.readFileSync(tmpIndex, 'utf8');
+    const firstFooters = afterFirst.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi) || [];
+    assert.equal(firstFooters.length, 1);
+    assert.match(firstFooters[0], />Build aaaa111 · 2026-11-14<\/footer>$/);
+
+    buildIndexHtml({
+      indexPath: tmpIndex,
+      commitHash: 'bbbb222',
+      buildDate: '2026-11-15',
+    });
+    const afterSecond = fs.readFileSync(tmpIndex, 'utf8');
+    const secondFooters = afterSecond.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi) || [];
+    assert.equal(secondFooters.length, 1, 'Expected exactly one <footer> after metadata update');
+    assert.equal(
+      secondFooters[0],
+      `<footer style="${FOOTER_STYLE}">Build bbbb222 · 2026-11-15</footer>`
+    );
+    assert.doesNotMatch(afterSecond, /aaaa111|2026-11-14/);
+
+    // Verify duplicate footers in input HTML are also collapsed to one updated footer
+    const duplicateFooterHtml = afterSecond.replace(
+      '</body>',
+      `  <footer style="${FOOTER_STYLE}">Build cccc333 · 2026-11-16</footer>\n</body>`
+    );
+    fs.writeFileSync(tmpIndex, duplicateFooterHtml, 'utf8');
+    buildIndexHtml({
+      indexPath: tmpIndex,
+      commitHash: 'dddd444',
+      buildDate: '2026-11-17',
+    });
+    const afterDedupe = fs.readFileSync(tmpIndex, 'utf8');
+    const dedupedFooters = afterDedupe.match(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi) || [];
+    assert.equal(dedupedFooters.length, 1, 'Expected duplicate footers to be collapsed to a single footer');
+    assert.equal(
+      dedupedFooters[0],
+      `<footer style="${FOOTER_STYLE}">Build dddd444 · 2026-11-17</footer>`
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
