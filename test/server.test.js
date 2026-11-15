@@ -226,3 +226,23 @@ test('GET /health.json returns healthy status for garick-demo', async () => {
   assert.deepEqual(await res.json(), { status: 'healthy', service: 'garick-demo' });
 });
 
+// --- KAN-56: Version JSON endpoint ---
+test('GET /version.json returns 200 JSON object with string service, revision, and builtAt fields', async () => {
+  const res = await fetch(`${baseUrl}/version.json`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /application\/json/);
+
+  const body = await res.json();
+  assert.equal(typeof body, 'object');
+  assert.notEqual(body, null);
+  assert.equal(Array.isArray(body), false);
+  assert.deepEqual(Object.keys(body).sort(), ['builtAt', 'revision', 'service']);
+  assert.equal(typeof body.service, 'string');
+  assert.equal(typeof body.revision, 'string');
+  assert.equal(typeof body.builtAt, 'string');
+  assert.ok(body.service.length > 0);
+  assert.ok(body.revision.length > 0);
+  assert.ok(body.builtAt.length > 0);
+});
+
+
