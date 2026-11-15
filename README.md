@@ -72,8 +72,8 @@ npm test
 Runs the Node built-in test runner (`node --test`) against a server on an
 ephemeral port — covers the HTML response, theme selector, design tokens,
 inline no-flash script, `theme-preference` cookie persistence, feature-flag
-behavior, the resolved-theme logic, the health endpoint, 404s, and the
-default port.
+behavior, the resolved-theme logic, the health endpoint, the version endpoint,
+404s, and the default port.
 
 ## Health endpoint (KAN-3)
 
@@ -90,9 +90,31 @@ curl -i http://localhost:9385/health
 # {"status":"ok"}
 ```
 
+## Version endpoint (KAN-56)
+
+- `GET /version.json` returns `200` with `Content-Type: application/json; charset=utf-8`
+  and a JSON object describing the service and build metadata.
+
+### Response fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `service` | `string` | Name of the service (for example, `"helloworld"`). |
+| `revision` | `string` | Git revision identifier for the build (for example, `"993e63d"`). |
+| `builtAt` | `string` | ISO-8601 build timestamp (for example, `"2026-11-15T00:00:00.000Z"`). |
+
+```bash
+curl -i http://localhost:9385/version.json
+# HTTP/1.1 200 OK
+# Content-Type: application/json; charset=utf-8
+#
+# {"service":"helloworld","revision":"993e63d","builtAt":"2026-11-15T00:00:00.000Z"}
+```
+
 ## Files
 
-- `server.js` — zero-dependency HTTP server + themed page; serves static `links.html` and `credits.html`.
+- `server.js` — zero-dependency HTTP server + themed page; serves static `links.html`, `credits.html`, `health.html`, `health.json`, and `version.json`.
+- `version.json` — version metadata payload (`service`, `revision`, `builtAt`).
 - `links.html` — static Links page (inline CSS, back link to `index.html`).
 - `credits.html` — static Credits page (inline CSS, back link to `index.html`).
 - `test/server.test.js` — automated tests (node:test + fetch).
