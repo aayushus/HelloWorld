@@ -1,5 +1,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { createServer, startServer, normalizeTheme, resolveTheme, getThemePreference, isDarkModeEnabled, THEME_PREFERENCE_KEY } = require('../server');
 
 let server;
@@ -225,4 +227,45 @@ test('GET /health.json returns healthy status for garick-demo', async () => {
   assert.match(res.headers.get('content-type'), /application\/json/);
   assert.deepEqual(await res.json(), { status: 'healthy', service: 'garick-demo' });
 });
+
+// --- KAN-58: Accessible SVG status icon on the health page ---
+test('GET /health.html serves an original accessible SVG status icon (< 2 KiB) with meaningful text alternative and no external requests', async () => {
+  const { res, body } = await getPage('/health.html');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+
+  const svgMatch = body.match(/<svg\b[^>]*>[\s\S]*?<\/svg>/i);
+  assert.ok(svgMatch, 'Expected /health.html to contain an inline <svg> status icon');
+
+  const svgMarkup = svgMatch[0];
+  const svgByteLength = Buffer.byteLength(svgMarkup, 'utf8');
+  assert.ok(svgByteLength > 0 && svgByteLength < 2048, `Expected SVG asset to be < 2 KiB (2048 bytes), got ${svgByteLength} bytes`);
+
+  const svgFilePath = path.join(__dirname, '..', 'status-icon.svg');
+  assert.ok(fs.existsSync(svgFilePath), 'Expected status-icon.svg asset file to exist');
+  const svgFileBytes = fs.statSync(svgFilePath).size;
+  assert.ok(svgFileBytes > 0 && svgFileBytes < 2048, `Expected status-icon.svg file to be < 2 KiB, got ${svgFileBytes} bytes`);
+
+  // Meaningful accessible text alternative
+  assert.match(svgMarkup, /\brole="img"/i);
+  assert.match(svgMarkup, /\baria-label="System status: Operational"/i);
+  assert.match(svgMarkup, /<title\b[^>]*>System status: Operational<\/title>/i);
+  assert.match(svgMarkup, /<desc\b[^>]*>[^<]*operational[^<]*<\/desc>/i);
+
+  // No third-party assets or network requests required
+  assert.doesNotMatch(body, /<(?:script|link|img|iframe|source)\b[^>]+(?:src|href)=/i);
+  assert.doesNotMatch(body, /@import\b|url\(\s*['"]?https?:/i);
+  assert.doesNotMatch(body, /\bfetch\s*\(|XMLHttpRequest/i);
+});
+
+test('GET /status-icon.svg serves the SVG asset under 2 KiB with image/svg+xml content type', async () => {
+  const res = await fetch(`${baseUrl}/status-icon.svg`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /image\/svg\+xml/);
+  const svg = await res.text();
+  assert.match(svg, /<svg\b[^>]*role="img"/i);
+  assert.match(svg, /<title\b[^>]*>System status: Operational<\/title>/i);
+  assert.ok(Buffer.byteLength(svg, 'utf8') < 2048);
+});
+
 

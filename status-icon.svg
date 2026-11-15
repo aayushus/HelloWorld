@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="status-icon" width="48" height="48" viewBox="0 0 48 48" role="img" aria-label="System status: Operational" aria-describedby="status-icon-desc">
+  <title id="status-icon-title">System status: Operational</title>
+  <desc id="status-icon-desc">Green check mark icon indicating all systems are operational.</desc>
+  <circle cx="24" cy="24" r="22" fill="#e6f4ea" stroke="#28a745" stroke-width="2" />
+  <circle cx="24" cy="24" r="16" fill="#28a745" />
+  <path d="M17 24.5l4.5 4.5 9.5-9.5" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

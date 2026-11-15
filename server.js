@@ -291,6 +291,20 @@ function createServer() {
       serveStaticPage(req, res, pathname);
       return;
     }
+    if (req.method === 'GET' && pathname === '/status-icon.svg') {
+      try {
+        const content = fs.readFileSync(path.join(__dirname, 'status-icon.svg'), 'utf8');
+        res.writeHead(200, {
+          'Content-Type': 'image/svg+xml; charset=utf-8',
+          'Cache-Control': 'no-cache',
+        });
+        res.end(content);
+      } catch (_err) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Not found' }));
+      }
+      return;
+    }
     if (req.method === 'GET' && pathname === '/health.json') {
       try {
         const content = fs.readFileSync(path.join(__dirname, 'health.json'), 'utf8');
